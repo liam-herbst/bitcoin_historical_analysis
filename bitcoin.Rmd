@@ -1,0 +1,169 @@
+---
+title: "bitcoin"
+output: html_document
+---
+### Import Libaries
+```{r}
+library(ggplot2)
+library(dplyr)
+#library(tidyverse)
+```
+
+# Read Bitcoin Historical Data
+```{r}
+# Read CSV data into R
+btc_data <- read.csv("Coinbase_BTCUSD_d.csv", header = TRUE)
+# Display the first 6 elements to ensure that the data is read
+head(btc_data)
+```
+
+## Clean Data
+```{r}
+# Order rows by date
+btc = btc_data[order(btc_data$Date),]
+head(btc)
+```
+
+```{r}
+# Remove Timestamp & Symbol
+btc = subset(btc, select = -c(Timestamp, Symbol))
+# Check
+head(btc)
+```
+```{r}
+# Convert Date <fctr> in <date> format
+btc$Date <- as.Date(btc$Date, format = "%Y-%m-%d")
+head(btc)
+```
+```{r}
+# Create Year Category
+btc$Year <- format(as.Date(btc$Date, "%Y-%m-%d"), "%Y")
+head(btc)
+```
+```{r}
+# Create Month Category
+btc$Month <- format(as.Date(btc$Date, "%Y-%m-%d"), "%m")
+head(btc)
+```
+## Display Summary
+```{r}
+summary(btc)
+```
+No irregularities to correct. The substantial variance between prices is due to Bitcoin's rapid ascent in price over the duration of the dataset. As shown in the next section.
+# Evaluating Bitcoin's Historical Price
+```{r}
+btc %>%
+  select(Date, Close, Volume.BTC) %>%
+  ggplot()+
+  geom_line(aes(x = Date, y = Close))
+```
+## Price By Year
+### 2014
+```{r}
+# 2014 Price Chart & Summary
+btc %>%
+  select(Date, Close, Volume.USD) %>%
+  filter(Date >= "2014-01-01") %>%
+  filter(Date <= "2014-12-31") %>%
+  ggplot()+
+  geom_line(aes(x = Date, y = Close))
+
+btc %>%
+  filter(Year == 2014) %>%
+  summary(btc)
+```
+### 2015
+```{r}
+btc %>%
+  select(Date, Close, Volume.USD) %>%
+  filter(Date >= "2015-01-01") %>%
+  filter(Date <= "2015-12-31") %>%
+  ggplot()+
+  geom_line(aes(x = Date, y = Close))
+
+btc %>%
+  filter(Year == 2015) %>%
+  summary(btc)
+```
+### 2016
+```{r}
+btc %>%
+  select(Date, Close, Volume.USD) %>%
+  filter(Date >= "2016-01-01") %>%
+  filter(Date <= "2016-12-31") %>%
+  ggplot()+
+  geom_line(aes(x = Date, y = Close))
+
+btc %>%
+  filter(Year == 2016) %>%
+  summary(btc)
+```
+### 2017
+```{r}
+btc %>%
+  select(Date, Close, Volume.USD) %>%
+  filter(Date >= "2017-01-01") %>%
+  filter(Date <= "2017-12-31") %>%
+  ggplot()+
+  geom_line(aes(x = Date, y = Close))
+
+btc %>%
+  filter(Year == 2017) %>%
+  summary(btc)
+```
+### 2018
+```{r}
+btc %>%
+  select(Date, Close, Volume.USD) %>%
+  filter(Date >= "2018-01-01") %>%
+  filter(Date <= "2018-12-31") %>%
+  ggplot()+
+  geom_line(aes(x = Date, y = Close))
+
+btc %>%
+  filter(Year == 2018) %>%
+  summary(btc)
+```
+### 2019
+```{r}
+btc %>%
+  select(Date, Close, Volume.USD) %>%
+  filter(Date >= "2019-01-01") %>%
+  filter(Date <= "2019-12-31") %>%
+  ggplot()+
+  geom_line(aes(x = Date, y = Close))
+
+btc %>%
+  filter(Year == 2019) %>%
+  summary(btc)
+```
+### 2020
+```{r}
+btc %>%
+  select(Date, Close, Volume.USD) %>%
+  filter(Date >= "2020-01-01") %>%
+  filter(Date <= "2020-12-31") %>%
+  ggplot()+
+  geom_line(aes(x = Date, y = Close))
+
+btc %>%
+  filter(Year == 2020) %>%
+  summary(btc)
+```
+# Compare Cryptocurrencies
+
+
+
+# Compare With Traditional Investment Vehichles (Equities & bonds)
+(representde by the Dow jones and US treasury bonds)
+
+```{r}
+
+```
+
+
+
+*Evaluate Bitcoin Price Compared to the Top 5 Currencies*
+```{r}
+#plot_top_5_currencies()
+```
