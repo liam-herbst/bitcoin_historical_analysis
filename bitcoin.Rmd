@@ -275,45 +275,6 @@ head(dash)
 # Compare With Traditional Investment Vehichles (Equities & bonds)
 (representde by the Dow jones and US treasury bonds)
 
-```{r}
-ds <- data.frame(Date = btc$Date, btc$Close)
-
-fig <- plot_ly(ds, x = ~Date)
-fig <- fig %>% add_lines(y = ~btc$Close, name = "Bitcoin")
-fig <- fig %>% layout(
-    title = "Bitcoin Price",
-    xaxis = list(
-      rangeselector = list(
-        buttons = list(
-          list(
-            count = 3,
-            label = "3 mo",
-            step = "month",
-            stepmode = "backward"),
-          list(
-            count = 6,
-            label = "6 mo",
-            step = "month",
-            stepmode = "backward"),
-          list(
-            count = 1,
-            label = "1 yr",
-            step = "year",
-            stepmode = "backward"),
-          list(
-            count = 1,
-            label = "YTD",
-            step = "year",
-            stepmode = "todate"),
-          list(step = "all"))),
-
-      rangeslider = list(type = "date")),
-
-    yaxis = list(title = "Price (USD)"))
-
-fig
-```
-
 *Evaluate Bitcoin Price Compared to the Top 5 Currencies*
 ```{r}
 #plot_top_5_currencies()
