@@ -7,19 +7,19 @@ output: html_document
 # All coin history data was sourced from [Crypto Download Data](https://www.cryptodatadownload.com/)
 library(ggplot2)
 library(dplyr)
-install.packages("devtools")
-devtools::install_github("ropensci/plotly")
+library(devtools)
+library(plotly)
+library(quantmod)
+library(xts)
 ```
 
-# Read Bitcoin Historical Data
+# Clean & Read Bitcoin Historical Data
 ```{r}
 # Read CSV data into R
 btc_data <- read.csv("Coinbase_BTCUSD_d.csv", header = TRUE)
 # Display the first 6 elements to ensure that the data is read
 head(btc_data)
 ```
-
-## Clean Data
 ```{r}
 # Order rows by date
 btc = btc_data[order(btc_data$Date),]
@@ -37,17 +37,93 @@ head(btc)
 btc$Date <- as.Date(btc$Date, format = "%Y-%m-%d")
 head(btc)
 ```
-## Display Summary
-```{r}
-summary(btc)
-```
 No irregularities to correct. The substantial variance between prices is due to Bitcoin's rapid ascent in price over the duration of the dataset. As shown in the next section.
-## Evaluating Bitcoin's Historical Price
+## Historical Price Chart
 ```{r}
+ds <- data.frame(Date = btc$Date, btc$Close, btc$Volume.USD)
+
+ay <- list(
+  tickfont = list(color = "Orange"),
+  overlaying = "y",
+  side = "right",
+  title = "Trade Volume"
+)
+fig <- plot_ly(ds, x = ~Date)
+fig <- fig %>% add_lines(y = ~btc$Close, name = "Price")
+fig <- fig %>% add_lines(y = ~btc$Volume.USD, name = "Volume", yaxis = "y2")
+fig <- fig %>% layout(
+    title = "Bitcoin Price & Trade Volume",
+    yaxis2 = ay,
+    xaxis = list(
+      rangeselector = list(
+        buttons = list(
+          list(
+            count = 3,
+            label = "3 mo",
+            step = "month",
+            stepmode = "backward"),
+          list(
+            count = 6,
+            label = "6 mo",
+            step = "month",
+            stepmode = "backward"),
+          list(
+            count = 1,
+            label = "1 yr",
+            step = "year",
+            stepmode = "backward"),
+          list(
+            count = 1,
+            label = "YTD",
+            step = "year",
+            stepmode = "todate"),
+          list(step = "all"))),
+      rangeslider = list(type = "date")),
+    yaxis = list(
+      title = "Price (USD)",
+      tickfont = list(color = "Blue"))
+)
+fig
+```
+## Display Summary Figures
+```{r}
+# 2014-2020 Summary
+summary(btc)
+#2 014
 btc %>%
-  select(Date, Close, Volume.BTC) %>%
-  ggplot()+
-  geom_line(aes(x = Date, y = Close))
+  filter(Date >= "2014-12-01") %>%
+  filter(Date <= "2014-12-31") %>%
+  summary(btc)
+# 2015
+btc %>%
+  filter(Date >= "2015-01-01") %>%
+  filter(Date <= "2015-12-31") %>%
+  summary(btc)
+# 2016
+btc %>%
+  filter(Date >= "2016-01-01") %>%
+  filter(Date <= "2016-12-31") %>%
+  summary(btc)
+# 2017
+btc %>%
+  filter(Date >= "2017-01-01") %>%
+  filter(Date <= "2017-12-31") %>%
+  summary(btc)
+# 2018
+btc %>%
+  filter(Date >= "2018-01-01") %>%
+  filter(Date <= "2018-12-31") %>%
+  summary(btc)
+# 2019
+btc %>%
+  filter(Date >= "2019-01-01") %>%
+  filter(Date <= "2019-12-31") %>%
+  summary(btc)
+# 2020
+btc %>%
+  filter(Date >= "2020-01-01") %>%
+  filter(Date <= "2020-11-20") %>%
+  summary(btc)
 ```
 ```{r}
 # Map the correlation between Bitcoin's closing price and volume traded (in USD)
@@ -57,106 +133,77 @@ plot(btc$Close, btc$Volume.USD)
 # Map the correlation between Bitcoin's closing price and volume traded (in BTC)
 plot(btc$Close, btc$Volume.BTC)
 ```
-## Price By Year
-### 2014
+# Bitcoin to Google Search Interest
+### Format BTC Database
+*******************Add graph with two axisis plotly.com/r/multiple-axes
 ```{r}
-# 2014 Price Chart & Summary
-btc %>%
-  select(Date, Close, Volume.USD) %>%
-  filter(Date >= "2014-01-01") %>%
-  filter(Date <= "2014-12-31") %>%
-  ggplot()+
-  geom_line(aes(x = Date, y = Close))
-
-btc %>%
-  filter(Date >= "2014-01-01") %>%
-  filter(Date <= "2014-12-31") %>%
-  summary(btc)
+# Create new database that filters for the first day of each month
+# Create startpoints function
+startpoints <- function (x, on = "months", k = 1) {
+  head(endpoints(x, on, k) + 1, -1)
+}
+btc_m <- btc
+btc_m <- btc_m[startpoints(btc_m$Date, on = "months"),]
+head(btc_m)
 ```
-### 2015
+### Add Google Search Data
 ```{r}
-btc %>%
-  select(Date, Close, Volume.USD) %>%
-  filter(Date >= "2015-01-01") %>%
-  filter(Date <= "2015-12-31") %>%
-  ggplot()+
-  geom_line(aes(x = Date, y = Close))
-
-btc %>%
-  filter(Date >= "2015-01-01") %>%
-  filter(Date <= "2015-12-31") %>%  
-  summary(btc)
+# Sourced from https://trends.google.com/trends/explore?date=2014-12-01%202020-11-20&geo=US&q=Bitcoin
+# Read CSV data into R
+search <- read.csv("btc_search_volume.csv", header = TRUE)
+# Convert Date factor into date format
+search$Date <- as.Date(search$Date, format = "%Y-%m-%d")
+# Display the first 6 elements to ensure that the data is read properly
+head(search)
 ```
-### 2016
+## Create Dual Y-Axis Comparable Graph
 ```{r}
-btc %>%
-  select(Date, Close, Volume.USD) %>%
-  filter(Date >= "2016-01-01") %>%
-  filter(Date <= "2016-12-31") %>%
-  ggplot()+
-  geom_line(aes(x = Date, y = Close))
+ds <- data.frame(Date = btc_m$Date, btc_m$Close, search$Volume)
 
-btc %>%
-  filter(Date >= "2016-01-01") %>%
-  filter(Date <= "2016-12-31") %>%
-  summary(btc)
-```
-### 2017
-```{r}
-btc %>%
-  select(Date, Close, Volume.USD) %>%
-  filter(Date >= "2017-01-01") %>%
-  filter(Date <= "2017-12-31") %>%
-  ggplot()+
-  geom_line(aes(x = Date, y = Close))
+ay <- list(
+  tickfont = list(color = "Orange"),
+  overlaying = "y",
+  side = "right",
+  title = "Weighted Search Volume"
+)
+fig <- plot_ly(ds, x = ~Date)
+fig <- fig %>% add_lines(x = ~Date, y = ~btc_m$Close, name = "Bitcoin")
+fig <- fig %>% add_lines(y = ~search$Volume, name = "Google Search", yaxis = "y2")
+fig <- fig %>% layout(
+    title = "Bitcoin Price vs. Google Search Volume", 
+    yaxis2 = ay,
+    xaxis = list(
+      rangeselector = list(
+        buttons = list(
+          list(
+            count = 3,
+            label = "3 mo",
+            step = "month",
+            stepmode = "backward"),
+          list(
+            count = 6,
+            label = "6 mo",
+            step = "month",
+            stepmode = "backward"),
+          list(
+            count = 1,
+            label = "1 yr",
+            step = "year",
+            stepmode = "backward"),
+          list(
+            count = 1,
+            label = "YTD",
+            step = "year",
+            stepmode = "todate"),
+          list(step = "all"))),
+      rangeslider = list(type = "date")),
+    yaxis = list(title = "Price (USD)")
+  )
 
-btc %>%
-  filter(Date >= "2017-01-01") %>%
-  filter(Date <= "2017-12-31") %>%
-  summary(btc)
+fig
 ```
-### 2018
-```{r}
-btc %>%
-  select(Date, Close, Volume.USD) %>%
-  filter(Date >= "2018-01-01") %>%
-  filter(Date <= "2018-12-31") %>%
-  ggplot()+
-  geom_line(aes(x = Date, y = Close))
 
-btc %>%
-  filter(Date >= "2018-01-01") %>%
-  filter(Date <= "2018-12-31") %>%
-  summary(btc)
-```
-### 2019
-```{r}
-btc %>%
-  select(Date, Close, Volume.USD) %>%
-  filter(Date >= "2019-01-01") %>%
-  filter(Date <= "2019-12-31") %>%
-  ggplot()+
-  geom_line(aes(x = Date, y = Close))
 
-btc %>%
-  filter(Date >= "2019-01-01") %>%
-  filter(Date <= "2019-12-31") %>%
-  summary(btc)
-```
-### 2020
-```{r}
-btc %>%
-  select(Date, Close, Volume.USD) %>%
-  filter(Date >= "2020-01-01") %>%
-  filter(Date <= "2020-12-31") %>%
-  ggplot()+
-  geom_line(aes(x = Date, y = Close))
-
-btc %>%
-  filter(Date >= "2020-01-01") %>%
-  filter(Date <= "2020-12-31") %>%
-  summary(btc)
-```
 # Compare Cryptocurrencies
 ### Ethereum Data
 ```{r}
@@ -223,24 +270,18 @@ dash$Date <- as.Date(dash$Date, format = "%Y-%m-%d")
 # Display the first 6 elements to ensure that the data is read properly
 head(dash)
 ```
+## Filter Rows for Consistency
+
 # Compare With Traditional Investment Vehichles (Equities & bonds)
 (representde by the Dow jones and US treasury bonds)
 
-
-
-
-
-
-
-
-
 ```{r}
-ds <- data.frame(Date = btc$Date, btc$Price)
+ds <- data.frame(Date = btc$Date, btc$Close)
 
 fig <- plot_ly(ds, x = ~Date)
-fig <- fig %>% add_lines(y = ~btc$Close, name = "Apple")
+fig <- fig %>% add_lines(y = ~btc$Close, name = "Bitcoin")
 fig <- fig %>% layout(
-    title = "Stock Prices",
+    title = "Bitcoin Price",
     xaxis = list(
       rangeselector = list(
         buttons = list(
@@ -268,7 +309,7 @@ fig <- fig %>% layout(
 
       rangeslider = list(type = "date")),
 
-    yaxis = list(title = "Price"))
+    yaxis = list(title = "Price (USD)"))
 
 fig
 ```
