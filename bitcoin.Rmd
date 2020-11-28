@@ -1,6 +1,10 @@
 ---
-title: "bitcoin"
-output: html_document
+title: "Bitcoin Price Prediction"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+    theme: united
 ---
 ### Import Libaries
 ```{r}
@@ -85,7 +89,7 @@ fig <- fig %>% layout(
       rangeslider = list(type = "date")),
     yaxis = list(
       title = "Price (USD)",
-      tickfont = list(color = "Blue"))
+      tickfont = list(color = "Black"))
 )
 fig
 ```
@@ -170,7 +174,9 @@ btc_cor <- btc[, 2:4]
 chart.Correlation(btc_cor)
 ```
 - The strongest linear relationship is between Volume.BTC and Volume.USD—as shown by the straight diagonal line and correlation of 0.77.
-- The correlation between Price and Volume.USD is also high at 0.7 but the correlation betweeen Price and Volume.BTC is just inside the ideal threshold of < 0.4 or > -0.4 at 0.35. Since Volume.BTC it is the only x-variable that has a correlation inside the ideal threshold and it's with the y-variable we're trying to predict—Bitcoin-further evaluation will be needed with additional data sets to run a linear regression and more advanced data science methods for predicting the price of Bitcoin.
+
+- The correlation between Price and Volume.USD is also high at 0.7 but the correlation between Price and Volume.BTC is just inside the ideal threshold of < 0.4 or > -0.4 at 0.35. Since Volume.BTC it is the only x-variable that has a correlation inside the ideal threshold and it's with the y-variable we're trying to predict—Bitcoin-further evaluation will be needed with additional data sets to run a linear regression and more advanced data science methods for predicting the price of Bitcoin.
+
 - All values have a p-value of ~0 (as represented by the ***) which means they are have a significant difference which isn't caused by chance
 
 # Bitcoin to Google Search Interest
@@ -261,12 +267,15 @@ btc_search_cor <- btc_search[, c(2,3,5)]
 chart.Correlation(btc_search_cor)
 ```
 The Volume.Search variable is still above the 0.4 threshold which'd bring us back to the original correlation matrix above (btc variables only). We can infer further evaluation is needed to predict the price of Bitcoin.
+
 # Compare Cryptocurrencies
 For simplicity, I am representing the price with the 'Close' variable and eliminating 'Open', 'High', and 'Low', for all cryptocurrencies and future finanical x.
-### Format Bitcion Data
+
+## Format Coin Data
+### Bitcion Data
 ```{r}
 # Rename Close variable to Price
-names(btc)[names(btc) == "Close"] <- "BTC.Price"
+names(btc)[names(btc) == "Price"] <- "BTC.Price"
 # Rename Volume.USD to Currency
 names(btc)[names(btc) == "Volume.USD"] <- "BTC.Volume.USD"
 head(btc)
@@ -369,14 +378,26 @@ head(dash)
 ```
 ## Filter Rows for Consistency
 ```{r}
-# Total number of rows (from XRP database)
+# Total number of rows (from XRP database since it has the fewest historical data points)
 c_rows <- 1392
-```
-
-```{r}
 # Format Bitcoin
 btc_c <- tail(btc,n=c_rows)
-(btc_c)
+head(btc_c)
+# Ethereum
+eth <- tail(eth,n=c_rows)
+head(eth)
+# Litecoin
+ltc <- tail(ltc,n=c_rows)
+head(ltc)
+# Ripple
+xrp <- tail(xrp,n=c_rows)
+head(xrp)
+# Monero
+xmr <- tail(xmr,n=c_rows)
+head(xmr)
+# Dash
+dash <- tail(dash,n=c_rows)
+head(dash)
 ```
 ```{r}
 # Check row count (find formula that'll return the number of rows for each)
@@ -401,9 +422,9 @@ btc_c <- tail(btc,n=c_rows)
 ### Display Large Scatter Plots
 ```{r}
 # Map the correlation between Bitcoin's closing price and volume traded (in USD)
-plot(btc$Price, btc$Volume.USD, main = 'Price to Volume (USD) Comparison', xlab = 'Closing Price', ylab = 'Volume (USD)')
+#plot(btc$Price, btc$Volume.USD, main = 'Price to Volume (USD) Comparison', xlab = 'Closing Price', ylab = 'Volume (USD)')
 ```
 ```{r}
 # Map the correlation between Bitcoin's closing price and volume traded (in BTC)
-plot(btc$Price, btc$Volume.BTC, main = 'Price to Volume (BTC) Comparison', xlab = 'Closing Price', ylab = 'Volume (BTC)')
+#plot(btc$Price, btc$Volume.BTC, main = 'Price to Volume (BTC) Comparison', xlab = 'Closing Price', ylab = 'Volume (BTC)')
 ```
