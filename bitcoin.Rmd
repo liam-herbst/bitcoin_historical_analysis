@@ -11,9 +11,13 @@ library(devtools)
 library(plotly)
 library(quantmod)
 library(xts)
+library(coinmarketcapr)
+library(tidyverse)
+library(PerformanceAnalytics)
 ```
 
-# Clean & Read Bitcoin Historical Data
+# Evaluating Bitcoin
+## Clean & Read Historical Data
 ```{r}
 # Read CSV data into R
 btc_data <- read.csv("Coinbase_BTCUSD_d.csv", header = TRUE)
@@ -86,67 +90,91 @@ fig <- fig %>% layout(
 fig
 ```
 ## Display Summary Figures
+### 2014-2020 Summary
 ```{r}
-# 2014-2020 Summary
 summary(btc)
-#2 014
+```
+### 2014
+```{r}
 btc %>%
   filter(Date >= "2014-12-01") %>%
   filter(Date <= "2014-12-31") %>%
   summary(btc)
-# 2015
+```
+### 2015
+```{r}
 btc %>%
   filter(Date >= "2015-01-01") %>%
   filter(Date <= "2015-12-31") %>%
   summary(btc)
-# 2016
+```
+### 2016
+```{r}
 btc %>%
   filter(Date >= "2016-01-01") %>%
   filter(Date <= "2016-12-31") %>%
   summary(btc)
-# 2017
+```
+### 2017
+```{r}
 btc %>%
   filter(Date >= "2017-01-01") %>%
   filter(Date <= "2017-12-31") %>%
   summary(btc)
-# 2018
+```
+### 2018
+```{r}
 btc %>%
   filter(Date >= "2018-01-01") %>%
   filter(Date <= "2018-12-31") %>%
   summary(btc)
-# 2019
+```
+### 2019
+```{r}
 btc %>%
   filter(Date >= "2019-01-01") %>%
   filter(Date <= "2019-12-31") %>%
   summary(btc)
-# 2020
+```
+### 2020
+```{r}
 btc %>%
   filter(Date >= "2020-01-01") %>%
   filter(Date <= "2020-11-20") %>%
   summary(btc)
 ```
+## Display Scatter Plots & Find Correlations
 ```{r}
-# Map the correlation between Bitcoin's closing price and volume traded (in USD)
-plot(btc$Close, btc$Volume.USD)
+btc_cor <- btc[, 2:7]
+chart.Correlation(btc_cor)
+```
+In the above plot:
+
+- The distribution of each variable is shown on the diagonal.
+- On the bottom of the diagonal : the bivariate scatter plots with a fitted line are displayed
+- On the top of the diagonal : the value of the correlation plus the significance level as stars
+- Each significance level is associated to a symbol : p-values(0, 0.001, 0.01, 0.05, 0.1, 1) <=> symbols(“***”, “**”, “*”, “.”, " “)
+
+These graphs show us that there is very little difference between the 'Open', 'High', 'Low', and 'Close' figures, so we are only going to remove all but the 'Close' variable and retest.
+```{r}
+# Remove the Open, High and Low variables
+btc <- subset(btc, select = -c(Open, High, Low))
+# Rename Close variable to Price
+names(btc)[names(btc) == "Close"] <- "Price"
+# Check 
+head(btc)
 ```
 ```{r}
-# Map the correlation between Bitcoin's closing price and volume traded (in BTC)
-plot(btc$Close, btc$Volume.BTC)
+# Re-run correlation matrix &^ scatter plots
+btc_cor <- btc[, 2:4]
+chart.Correlation(btc_cor)
 ```
+- The strongest linear relationship is between Volume.BTC and Volume.USD—as shown by the straight diagonal line and correlation of 0.77.
+- The correlation between Price and Volume.USD is also high at 0.7 but the correlation betweeen Price and Volume.BTC is just inside the ideal threshold of < 0.4 or > -0.4 at 0.35. Since Volume.BTC it is the only x-variable that has a correlation inside the ideal threshold and it's with the y-variable we're trying to predict—Bitcoin-further evaluation will be needed with additional data sets to run a linear regression and more advanced data science methods for predicting the price of Bitcoin.
+- All values have a p-value of ~0 (as represented by the ***) which means they are have a significant difference which isn't caused by chance
+
 # Bitcoin to Google Search Interest
-### Format BTC Database
-*******************Add graph with two axisis plotly.com/r/multiple-axes
-```{r}
-# Create new database that filters for the first day of each month
-# Create startpoints function
-startpoints <- function (x, on = "months", k = 1) {
-  head(endpoints(x, on, k) + 1, -1)
-}
-btc_m <- btc
-btc_m <- btc_m[startpoints(btc_m$Date, on = "months"),]
-head(btc_m)
-```
-### Add Google Search Data
+## Add Google Search Data
 ```{r}
 # Sourced from https://trends.google.com/trends/explore?date=2014-12-01%202020-11-20&geo=US&q=Bitcoin
 # Read CSV data into R
@@ -156,9 +184,30 @@ search$Date <- as.Date(search$Date, format = "%Y-%m-%d")
 # Display the first 6 elements to ensure that the data is read properly
 head(search)
 ```
+### Display Google Search Volume Summary
+```{r}
+summary(search)
+```
+## Format BTC Database
+```{r}
+# Create new database that filters for the first day of each month (since this is the only search volume data only available)
+# Create startpoints function
+startpoints <- function (x, on = "months", k = 1) {
+  head(endpoints(x, on, k) + 1, -1)
+}
+btc_m <- btc
+btc_m <- btc_m[startpoints(btc_m$Date, on = "months"),]
+head(btc_m)
+```
+### Combine BTC Month and Google Search Data
+```{r}
+btc_search <- data.frame(btc_m, Volume.Search = search$Volume)
+# Check
+head(btc_search)
+```
 ## Create Dual Y-Axis Comparable Graph
 ```{r}
-ds <- data.frame(Date = btc_m$Date, btc_m$Close, search$Volume)
+ds <- data.frame(Date = btc_search$Date, btc_search$Price, btc_search$Volume.Search)
 
 ay <- list(
   tickfont = list(color = "Orange"),
@@ -167,8 +216,8 @@ ay <- list(
   title = "Weighted Search Volume"
 )
 fig <- plot_ly(ds, x = ~Date)
-fig <- fig %>% add_lines(x = ~Date, y = ~btc_m$Close, name = "Bitcoin")
-fig <- fig %>% add_lines(y = ~search$Volume, name = "Google Search", yaxis = "y2")
+fig <- fig %>% add_lines(x = ~Date, y = ~btc_search$Price, name = "Bitcoin")
+fig <- fig %>% add_lines(y = ~btc_search$Volume.Search, name = "Google Search", yaxis = "y2")
 fig <- fig %>% layout(
     title = "Bitcoin Price vs. Google Search Volume", 
     yaxis2 = ay,
@@ -199,12 +248,29 @@ fig <- fig %>% layout(
       rangeslider = list(type = "date")),
     yaxis = list(title = "Price (USD)")
   )
-
 fig
 ```
-
-
+## Display Scatter Plots & Find Correlations
+```{r}
+btc_search_cor <- btc_search[, 2:5]
+chart.Correlation(btc_search_cor)
+```
+All correaltions are above the 0.4 threshold so I am going to remove the highest (Volume.USD) and run again.
+```{r}
+btc_search_cor <- btc_search[, c(2,3,5)]
+chart.Correlation(btc_search_cor)
+```
+The Volume.Search variable is still above the 0.4 threshold which'd bring us back to the original correlation matrix above (btc variables only). We can infer further evaluation is needed to predict the price of Bitcoin.
 # Compare Cryptocurrencies
+For simplicity, I am representing the price with the 'Close' variable and eliminating 'Open', 'High', and 'Low', for all cryptocurrencies and future finanical x.
+### Format Bitcion Data
+```{r}
+# Rename Close variable to Price
+names(btc)[names(btc) == "Close"] <- "BTC.Price"
+# Rename Volume.USD to Currency
+names(btc)[names(btc) == "Volume.USD"] <- "BTC.Volume.USD"
+head(btc)
+```
 ### Ethereum Data
 ```{r}
 # Read CSV data into R
@@ -215,6 +281,12 @@ eth = eth_data[order(eth_data$Date),]
 eth = subset(eth, select = -c(Unix.Timestamp, Symbol))
 # Convert Date factor in date format
 eth$Date <- as.Date(eth$Date, format = "%Y-%m-%d")
+# Remove the Open, High and Low variables
+eth <- subset(eth, select = -c(Open, High, Low))
+# Rename Close variable to Price
+names(eth)[names(eth) == "Close"] <- "ETH.Price"
+# Rename Volume.USD to Currency
+names(eth)[names(eth) == "Volume.USD"] <- "ETH.Volume.USD"
 # Display the first 6 elements to ensure that the data is read properly
 head(eth)
 ```
@@ -228,6 +300,12 @@ ltc = ltc_data[order(ltc_data$Date),]
 ltc = subset(ltc, select = -c(Unix.Timestamp, Symbol))
 # Convert Date factor into date format
 ltc$Date <- as.Date(ltc$Date, format = "%Y-%m-%d")
+# Remove the Open, High and Low variables
+ltc <- subset(ltc, select = -c(Open, High, Low))
+# Rename Close variable to Price
+names(ltc)[names(ltc) == "Close"] <- "LTC.Price"
+# Rename Volume.USD to Currency
+names(ltc)[names(ltc) == "Volume.USD"] <- "LTC.Volume.USD"
 # Display the first 6 elements to ensure that the data is read properly
 head(ltc)
 ```
@@ -241,6 +319,12 @@ xrp = xrp_data[order(xrp_data$Date),]
 xrp = subset(xrp, select = -c(Unix.Timestamp, Symbol))
 # Convert Date factor into date format
 xrp$Date <- as.Date(xrp$Date, format = "%Y-%m-%d")
+# Remove the Open, High and Low variables
+xrp <- subset(xrp, select = -c(Open, High, Low))
+# Rename Close variable to Price
+names(xrp)[names(xrp) == "Close"] <- "XRP.Price"
+# Rename Volume.USD to Currency
+names(xrp)[names(xrp) == "Volume.USD"] <- "XRP.Volume.USD"
 # Display the first 6 elements to ensure that the data is read properly
 head(xrp)
 ```
@@ -254,6 +338,12 @@ xmr = xmr_data[order(xmr_data$Date),]
 xmr = subset(xmr, select = -c(Unix.Timestamp, Symbol))
 # Convert Date factor into date format
 xmr$Date <- as.Date(xmr$Date, format = "%Y-%m-%d")
+# Remove the Open, High and Low variables
+xmr <- subset(xmr, select = -c(Open, High, Low))
+# Rename Close variable to Price
+names(xmr)[names(xmr) == "Close"] <- "XMR.Price"
+# Rename Volume.USD to Currency
+names(xmr)[names(xmr) == "Volume.USD"] <- "XMR.Volume.USD"
 # Display the first 6 elements to ensure that the data is read properly
 head(xmr)
 ```
@@ -267,10 +357,31 @@ dash = dash_data[order(dash_data$Date),]
 dash = subset(dash, select = -c(Unix.Timestamp, Symbol))
 # Convert Date factor into date format
 dash$Date <- as.Date(dash$Date, format = "%Y-%m-%d")
+# Remove the Open, High and Low variables
+dash <- subset(dash, select = -c(Open, High, Low))
+# Rename Close variable to Price
+names(dash)[names(dash) == "Close"] <- "DASH.Price"
+# Rename improperly formatted Volume.DAS & Volume.HUSD
+names(dash)[names(dash) == "Volume.DAS"] <- "Volume.DASH"
+names(dash)[names(dash) == "Volume.HUSD"] <- "DASH.Volume.USD"
 # Display the first 6 elements to ensure that the data is read properly
 head(dash)
 ```
 ## Filter Rows for Consistency
+```{r}
+# Total number of rows (from XRP database)
+c_rows <- 1392
+```
+
+```{r}
+# Format Bitcoin
+btc_c <- tail(btc,n=c_rows)
+(btc_c)
+```
+```{r}
+# Check row count (find formula that'll return the number of rows for each)
+```
+## Normalize the Data
 
 # Compare With Traditional Investment Vehichles (Equities & bonds)
 (representde by the Dow jones and US treasury bonds)
@@ -278,4 +389,21 @@ head(dash)
 *Evaluate Bitcoin Price Compared to the Top 5 Currencies*
 ```{r}
 #plot_top_5_currencies()
+```
+
+
+
+
+
+
+
+
+### Display Large Scatter Plots
+```{r}
+# Map the correlation between Bitcoin's closing price and volume traded (in USD)
+plot(btc$Price, btc$Volume.USD, main = 'Price to Volume (USD) Comparison', xlab = 'Closing Price', ylab = 'Volume (USD)')
+```
+```{r}
+# Map the correlation between Bitcoin's closing price and volume traded (in BTC)
+plot(btc$Price, btc$Volume.BTC, main = 'Price to Volume (BTC) Comparison', xlab = 'Closing Price', ylab = 'Volume (BTC)')
 ```
