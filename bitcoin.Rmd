@@ -13,6 +13,8 @@ library(ggplot2)
 library(dplyr)
 library(devtools)
 library(plotly)
+library(rpart)
+library(randomForest)
 library(quantmod)
 library(xts)
 library(coinmarketcapr)
@@ -35,7 +37,7 @@ head(btc)
 ```
 
 ```{r}
-# Remove Timestamp & Symbol
+# Remove Symbol
 btc = subset(btc, select = -c(Timestamp, Symbol))
 # Check
 head(btc)
@@ -46,6 +48,49 @@ btc$Date <- as.Date(btc$Date, format = "%Y-%m-%d")
 head(btc)
 ```
 No irregularities to correct. The substantial variance between prices is due to Bitcoin's rapid ascent in price over the duration of the dataset. As shown in the next section.
+## Create y variable: close price of next day 
+
+```{r}
+#btc$Close.nextday = 0
+#test_var <- btc$Close
+#column_data_close_price <- 0
+
+
+#for(i in 1:length(test_var)) {
+  #column_data_close_price[i] <- test_var[i+1]
+#}
+#btc$Close.nextday = column_data_close_price
+
+#btc
+```
+## Add Binary Close Variable
+```{r}
+btc$HL.Close = 0 
+test_var <- btc$Close
+column_data_close_HL <- 0
+
+for(i in 1:length(test_var)) {
+  
+  if(isTRUE(test_var[i] > test_var[i+1])) {
+    column_data_close_HL[i] <- "L"
+  }
+  else if(isTRUE(test_var[i] == test_var[i+1])) {
+    column_data_close_HL[i] <- "L"
+  }
+  else{
+    column_data_close_HL[i] <- "H"
+  }
+}
+
+btc$HL.Close = column_data_close_HL
+p <- btc$HL.Close
+
+head(btc)
+```
+```{r}
+btc <- btc[-c(2170), ]
+length(btc$Date)
+``` 
 ## Historical Price Chart
 ```{r}
 ds <- data.frame(Date = btc$Date, btc$Close, btc$Volume.USD)
@@ -93,59 +138,9 @@ fig <- fig %>% layout(
 )
 fig
 ```
-## Display Summary Figures
-### 2014-2020 Summary
+## Display 2014-2020 Summary Figures
 ```{r}
 summary(btc)
-```
-### 2014
-```{r}
-btc %>%
-  filter(Date >= "2014-12-01") %>%
-  filter(Date <= "2014-12-31") %>%
-  summary(btc)
-```
-### 2015
-```{r}
-btc %>%
-  filter(Date >= "2015-01-01") %>%
-  filter(Date <= "2015-12-31") %>%
-  summary(btc)
-```
-### 2016
-```{r}
-btc %>%
-  filter(Date >= "2016-01-01") %>%
-  filter(Date <= "2016-12-31") %>%
-  summary(btc)
-```
-### 2017
-```{r}
-btc %>%
-  filter(Date >= "2017-01-01") %>%
-  filter(Date <= "2017-12-31") %>%
-  summary(btc)
-```
-### 2018
-```{r}
-btc %>%
-  filter(Date >= "2018-01-01") %>%
-  filter(Date <= "2018-12-31") %>%
-  summary(btc)
-```
-### 2019
-```{r}
-btc %>%
-  filter(Date >= "2019-01-01") %>%
-  filter(Date <= "2019-12-31") %>%
-  summary(btc)
-```
-### 2020
-```{r}
-btc %>%
-  filter(Date >= "2020-01-01") %>%
-  filter(Date <= "2020-11-20") %>%
-  summary(btc)
 ```
 ## Display Scatter Plots & Find Correlations
 ```{r}
@@ -179,6 +174,141 @@ chart.Correlation(btc_cor)
 
 - All values have a p-value of ~0 (as represented by the ***) which means they are have a significant difference which isn't caused by chance
 
+## Decision Trees
+### Read the data and split into training and testing sets
+```{r}
+num_samples = dim(btc)[1]
+sampling.rate = 0.8
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- subset(btc[training, ])
+testing <- setdiff(1:num_samples,training)
+testingSet <- subset(btc[testing, ])
+```
+
+
+```{r}
+head(trainingSet)
+```
+Fit a decision tree to predict sales using all the other variables. Note that train the tree using the Training set data
+```{r}
+#Fit a decision tree model using the training data
+decTreeModel <- rpart(HL.Close ~ .,data=trainingSet)
+```
+Display the tree
+```{r}
+plot(decTreeModel, margin=0.1)
+text(decTreeModel)
+```
+Leaving the tree size free leads to overfitting. Tune the size by looking at the relative error and the complexity parameter (CP)
+```{r}
+plotcp(decTreeModel)
+```
+Prune tree --> but kinda whack so not pruning 
+Evaluate the decision tree model using the testing set
+```{r}
+# Perform prdictions for the testing set
+predictedLabels<-predict(decTreeModel, testingSet, type = "class")
+print(predictedLabels)
+```
+Show the true labels
+```{r}
+print(testingSet$HL.Close)
+```
+
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+Very bad 
+# Random Forest for categorical variables
+```{r}
+btc$HL.Close <- as.factor(btc$HL.Close)
+```
+## Create Training and Testing sets 
+(Note that this data set is small so let us keep 90% for training)
+```{r}
+# Create Training and Testing Sets
+num_samples = dim(btc)[1]
+sampling.rate = 0.9
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- btc[training, ]
+testing <- setdiff(1:num_samples,training)
+testingSet <- btc[testing, ]
+```
+Train a random forest using the training set data
+```{r}
+RandForestModel <- randomForest(HL.Close ~ ., data = trainingSet)
+```
+Plot the error as a function of the number of trees
+```{r}
+plot(RandForestModel)
+legend("top", colnames(RandForestModel$err.rate),fill=1:3)
+```
+
+
+```{r}
+# Perform predictions for the testing set
+predictedLabels<-predict(RandForestModel, testingSet)
+predictedLabels
+```
+
+
+To evaluate the model, we compute a misclassification rate (the rate of incorrect predictions). Note that in this case we do not calculate MSE since the predictions are categories and not continous values
+
+
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the data points that are misclassified
+IsWrong = (predictedLabels != testingSet$HL.Close)
+# Get the data points that are classified as L
+IsL = (predictedLabels == 'L')
+# Get the data points that are misclassified and are classified as L
+IsWrongAndL = (IsWrong & IsL)
+error = sum(IsWrongAndL)
+
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+
+
+
+
+
+
+
+
+
+
+------------------------------------------
+SPLIT POINT
+------------------------------------------
+
+
+
+
+
+
+
 # Bitcoin to Google Search Interest
 ## Add Google Search Data
 ```{r}
@@ -187,8 +317,11 @@ chart.Correlation(btc_cor)
 search <- read.csv("btc_search_volume.csv", header = TRUE)
 # Convert Date factor into date format
 search$Date <- as.Date(search$Date, format = "%Y-%m-%d")
-# Display the first 6 elements to ensure that the data is read properly
+# Remove last few rows to align with the btc dataset
+search <- search[-c(260:261),]
+# Display the first and last 6 elements to ensure that the data is read properly
 head(search)
+tail(search)
 ```
 ### Display Google Search Volume Summary
 ```{r}
@@ -196,18 +329,18 @@ summary(search)
 ```
 ## Format BTC Database
 ```{r}
-# Create new database that filters for the first day of each month (since this is the only search volume data only available)
-# Create startpoints function
-startpoints <- function (x, on = "months", k = 1) {
-  head(endpoints(x, on, k) + 1, -1)
-}
-btc_m <- btc
-btc_m <- btc_m[startpoints(btc_m$Date, on = "months"),]
-head(btc_m)
+# Remove first few rows to align with the search dataset
+btc_w <- btc[-c(1:370),]
+# Remove last few rows to align with the search dataset
+head(btc_w)
+# Convert to weekly by only pulling the 7th row
+btc_w <- btc_w[seq(1, nrow(btc_w), 7),]
+head(btc_w)
+tail(btc_w)
 ```
-### Combine BTC Month and Google Search Data
+### Combine BTC Weekly and Google Search Data
 ```{r}
-btc_search <- data.frame(btc_m, Volume.Search = search$Volume)
+btc_search <- data.frame(btc_w, Volume.Search = search$Volume)
 # Check
 head(btc_search)
 ```
@@ -258,10 +391,11 @@ fig
 ```
 ## Display Scatter Plots & Find Correlations
 ```{r}
-btc_search_cor <- btc_search[, 2:5]
+##### This is causing an error because the HIGH/LOW needs to be converted to a binary numerical variable
+btc_search_cor <- btc_search[, c(2:5)]
 chart.Correlation(btc_search_cor)
 ```
-All correaltions are above the 0.4 threshold so I am going to remove the highest (Volume.USD) and run again.
+All correlations are above the 0.4 threshold so I am going to remove the highest (Volume.USD) and run again.
 ```{r}
 btc_search_cor <- btc_search[, c(2,3,5)]
 chart.Correlation(btc_search_cor)
@@ -276,14 +410,16 @@ For simplicity, I am representing the price with the 'Close' variable and elimin
 ```{r}
 # Rename Close variable to Price
 names(btc)[names(btc) == "Price"] <- "BTC.Price"
+# Remove Volume. BTC
+btc = subset(btc, select = -c(Volume.BTC))
 # Rename Volume.USD to Currency
-names(btc)[names(btc) == "Volume.USD"] <- "BTC.Volume.USD"
+names(btc)[names(btc) == "Volume.USD"] <- "BTC.Volume"
 head(btc)
 ```
 ### Ethereum Data
 ```{r}
 # Read CSV data into R
-eth_data <- read.csv("Coinbase_ETHUSD_d.csv", header = TRUE)
+eth <- read.csv("Coinbase_ETHUSD_d.csv", header = TRUE)
 # Order rows by date
 eth = eth_data[order(eth_data$Date),]
 # Remove Timestamp & Symbol
@@ -291,11 +427,11 @@ eth = subset(eth, select = -c(Unix.Timestamp, Symbol))
 # Convert Date factor in date format
 eth$Date <- as.Date(eth$Date, format = "%Y-%m-%d")
 # Remove the Open, High and Low variables
-eth <- subset(eth, select = -c(Open, High, Low))
+eth <- subset(eth, select = -c(Open, High, Low, Volume.ETH))
 # Rename Close variable to Price
 names(eth)[names(eth) == "Close"] <- "ETH.Price"
 # Rename Volume.USD to Currency
-names(eth)[names(eth) == "Volume.USD"] <- "ETH.Volume.USD"
+names(eth)[names(eth) == "Volume.USD"] <- "ETH.Volume"
 # Display the first 6 elements to ensure that the data is read properly
 head(eth)
 ```
@@ -310,11 +446,11 @@ ltc = subset(ltc, select = -c(Unix.Timestamp, Symbol))
 # Convert Date factor into date format
 ltc$Date <- as.Date(ltc$Date, format = "%Y-%m-%d")
 # Remove the Open, High and Low variables
-ltc <- subset(ltc, select = -c(Open, High, Low))
+ltc <- subset(ltc, select = -c(Open, High, Low, Volume.LTC))
 # Rename Close variable to Price
 names(ltc)[names(ltc) == "Close"] <- "LTC.Price"
 # Rename Volume.USD to Currency
-names(ltc)[names(ltc) == "Volume.USD"] <- "LTC.Volume.USD"
+names(ltc)[names(ltc) == "Volume.USD"] <- "LTC.Volume"
 # Display the first 6 elements to ensure that the data is read properly
 head(ltc)
 ```
@@ -329,52 +465,13 @@ xrp = subset(xrp, select = -c(Unix.Timestamp, Symbol))
 # Convert Date factor into date format
 xrp$Date <- as.Date(xrp$Date, format = "%Y-%m-%d")
 # Remove the Open, High and Low variables
-xrp <- subset(xrp, select = -c(Open, High, Low))
+xrp <- subset(xrp, select = -c(Open, High, Low, Volume.XRP))
 # Rename Close variable to Price
 names(xrp)[names(xrp) == "Close"] <- "XRP.Price"
 # Rename Volume.USD to Currency
-names(xrp)[names(xrp) == "Volume.USD"] <- "XRP.Volume.USD"
+names(xrp)[names(xrp) == "Volume.USD"] <- "XRP.Volume"
 # Display the first 6 elements to ensure that the data is read properly
 head(xrp)
-```
-### Monero Data
-```{r}
-# Read CSV data into R
-xmr_data <- read.csv("Poloniex_XMRUSD_d.csv", header = TRUE)
-# Order rows by date
-xmr = xmr_data[order(xmr_data$Date),]
-# Remove Timestamp & Symbol
-xmr = subset(xmr, select = -c(Unix.Timestamp, Symbol))
-# Convert Date factor into date format
-xmr$Date <- as.Date(xmr$Date, format = "%Y-%m-%d")
-# Remove the Open, High and Low variables
-xmr <- subset(xmr, select = -c(Open, High, Low))
-# Rename Close variable to Price
-names(xmr)[names(xmr) == "Close"] <- "XMR.Price"
-# Rename Volume.USD to Currency
-names(xmr)[names(xmr) == "Volume.USD"] <- "XMR.Volume.USD"
-# Display the first 6 elements to ensure that the data is read properly
-head(xmr)
-```
-### Dash Data
-```{r}
-# Read CSV data into R
-dash_data <- read.csv("Poloniex_DASHUSD_d.csv", header = TRUE)
-# Order rows by date
-dash = dash_data[order(dash_data$Date),]
-# Remove Timestamp & Symbol
-dash = subset(dash, select = -c(Unix.Timestamp, Symbol))
-# Convert Date factor into date format
-dash$Date <- as.Date(dash$Date, format = "%Y-%m-%d")
-# Remove the Open, High and Low variables
-dash <- subset(dash, select = -c(Open, High, Low))
-# Rename Close variable to Price
-names(dash)[names(dash) == "Close"] <- "DASH.Price"
-# Rename improperly formatted Volume.DAS & Volume.HUSD
-names(dash)[names(dash) == "Volume.DAS"] <- "Volume.DASH"
-names(dash)[names(dash) == "Volume.HUSD"] <- "DASH.Volume.USD"
-# Display the first 6 elements to ensure that the data is read properly
-head(dash)
 ```
 ## Filter Rows for Consistency
 ```{r}
@@ -392,17 +489,56 @@ head(ltc)
 # Ripple
 xrp <- tail(xrp,n=c_rows)
 head(xrp)
-# Monero
-xmr <- tail(xmr,n=c_rows)
-head(xmr)
-# Dash
-dash <- tail(dash,n=c_rows)
-head(dash)
 ```
+## Remove All but One Date Variable & Merge Datasets
 ```{r}
-# Check row count (find formula that'll return the number of rows for each)
+# Ethereum
+eth <- subset(eth, select = -c(Date))
+# Litecoin
+ltc <- subset(ltc, select = -c(Date))
+# Ripple
+xrp <- subset(xrp, select = -c(Date))
+# Merge the Data Frames
+coins <- cbind(btc_c, eth, ltc, xrp)
+head(coins)
 ```
+## Display Scatter Plots & Find Correlations
+```{r}
+coins_cor <- coins[, 2:9]
+chart.Correlation(coins_cor)
+```
+As was expected, the price and volume of alternate crpytocurencies are mostly correlated with the price of Bitcoin. I'm going to remove the highest correlations—LTC.Price, BTC.Volume and ETH.Price—and re-run the model
+```{r}
+coins_cor <- coins[, c(2, 5, 7, 8, 9)]
+chart.Correlation(coins_cor)
+```
+The XRP.Price and XRP.Volume variables are slightly above 0.4 but they are close enough so we'll keep them.
+## Create a Regression Model
+```{r}
+coin_reg <- lm(coins$BTC.Price ~ coins$ETH.Volume + coins$LTC.Volume + coins$XRP.Price + coins$XRP.Volume)
+summary(coin_reg)
+```
+Let's remove ETH.Volume given it's P Value is well above 0.05
+```{r}
+coin_reg <- lm(coins$BTC.Price ~ + coins$LTC.Volume + coins$XRP.Price + coins$XRP.Volume)
+summary(coin_reg)
+```
+The R-Squared is too low to provide an accurate prediction
+# Predicting Tomorrow's Price Using a Series of Asset Class Prices
+
 ## Normalize the Data
+```{r}
+coins$BTC.Price <- (coins$BTC.Price - mean(coins$BTC.Price)) / sd(coins$BTC.Price)
+coins$BTC.Volume <- (coins$BTC.Volume - mean(coins$BTC.Volume)) / sd(coins$BTC.Volume)
+coins$ETH.Price <- (coins$ETH.Price - mean(coins$ETH.Price)) / sd(coins$ETH.Price)
+coins$ETH.Volume <- (coins$ETH.Volume - mean(coins$ETH.Volume)) / sd(coins$ETH.Volume)
+coins$LTC.Price <- (coins$LTC.Price - mean(coins$LTC.Price)) / sd(coins$LTC.Price)
+coins$LTC.Volume <- (coins$LTC.Volume - mean(coins$LTC.Volume)) / sd(coins$LTC.Volume)
+coins$XRP.Price <- (coins$XRP.Price - mean(coins$XRP.Price)) / sd(coins$XRP.Price)
+coins$XRP.Volume <- (coins$XRP.Volume - mean(coins$XRP.Volume)) / sd(coins$XRP.Volume)
+head(coins)
+```
+
 
 # Compare With Traditional Investment Vehichles (Equities & bonds)
 (representde by the Dow jones and US treasury bonds)
