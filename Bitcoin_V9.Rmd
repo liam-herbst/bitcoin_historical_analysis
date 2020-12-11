@@ -1,0 +1,1158 @@
+---
+title: "Bitcoin"
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+# Creating a Master Data Set 
+## Start with Bitcoin Data 
+**Data File Description:**
+* Sourced: Coinbase
+* Consists of Bitcoin prices from November 2014 - November 2020
+* 2,182 Data Points: this a large enough data set to provide analysis 
+**Import Dataset**
+```{r}
+# Read CSV data into R
+btc_data <- read.csv("Coinbase_BTCUSD_d.csv", header = TRUE)
+
+#number of rows; there are 2182 data points. 
+dim(btc_data)
+
+# Display the first 6 elements to ensure that the data is read
+head(btc_data)
+tail(btc_data)
+```
+**Order the rows by ascending order**
+```{r}
+# Order rows by date
+btc = btc_data[order(btc_data$Date),]
+
+# Display order
+head(btc)
+```
+**Clean the data further**
+* Date was converted from Chr format to Date format
+* Symbol Column was removed
+```{r}
+# Convert Date variable into date format
+btc$Date <- as.Date(btc$Date, format = "%Y-%m-%d")
+head(btc)
+
+# Remove symbol
+btc = subset(btc, select = -c(Symbol))
+head(btc)
+```
+**Close price of the next day**
+* Closing price is an accurate representation of overall price and is slightly less volatile than daily high or low prices
+* We decided not to use this variable, however, to improve our model in the future this variable could be used to predict future price of bitcoin rather than merely future increase/decrease of bitcoin 
+```{r}
+#btc$Close.nextday = 0
+#test_var <- btc$Close
+#column_data_close_price <- 0
+
+#for(i in 1:length(test_var)) {
+  #column_data_close_price[i] <- test_var[i+1]
+#}
+#btc$Close.nextday = column_data_close_price
+
+#head(btc)
+```
+**Create a binary close variable (H/L)**
+* This binary variable indicated if tomorrows prices increases (H) or decreases/stayed the same (L)
+```{r}
+btc$HL.Close = 0 
+test_var <- btc$Close
+column_data_close_HL <- 0
+
+for(i in 1:length(test_var)) {
+  
+  if(isTRUE(test_var[i] > test_var[i+1])) {
+    column_data_close_HL[i] <- 0 #L
+  }
+  else if(isTRUE(test_var[i] == test_var[i+1])) {
+    column_data_close_HL[i] <- 0 #L
+  }
+  else{
+    column_data_close_HL[i] <- 1 #H
+  }
+}
+
+btc$HL.Close = column_data_close_HL
+p <- btc$HL.Close
+
+head(btc)
+```
+
+##Cyptocurrencies Section 
+
+### Ethereum Data
+**Data Description**
+* Ethereum Data prices from May 27 2016- November 11 2020
+* Source: Coinbase
+```{r}
+# Read CSV data into R
+eth_data <- read.csv("Coinbase_ETHUSD_d.csv", header = TRUE)
+
+# Order rows by date
+eth = eth_data[order(eth_data$Date),]
+
+# Remove Timestamp & Symbol
+eth = subset(eth, select = -c(Unix.Timestamp, Symbol))
+
+# Convert Date factor in date format
+eth$Date <- as.Date(eth$Date, format = "%Y-%m-%d")
+
+# Remove the Open, High and Low variables
+eth <- subset(eth, select = -c(Open, High, Low, Volume.ETH))
+
+# Rename Close variable to Price
+names(eth)[names(eth) == "Close"] <- "ETH.Price"
+
+# Rename Volume.USD to Currency
+names(eth)[names(eth) == "Volume.USD"] <- "ETH.Volume"
+
+# Display the first and last 6 elements to ensure that the data is read properly
+head(eth)
+tail(eth)
+```
+### Litecoin Data
+**Data Description**
+* Litecoin Data prices from August 23 2016- November 15 2020
+* Source: Coinbase
+```{r}
+# Read CSV data into R
+ltc_data <- read.csv("Coinbase_LTCUSD_d.csv", header = TRUE)
+
+# Order rows by date
+ltc = ltc_data[order(ltc_data$Date),]
+
+# Remove Timestamp & Symbol
+ltc = subset(ltc, select = -c(Unix.Timestamp, Symbol))
+
+# Convert Date factor into date format
+ltc$Date <- as.Date(ltc$Date, format = "%Y-%m-%d")
+
+# Remove the Open, High and Low variables
+ltc <- subset(ltc, select = -c(Open, High, Low, Volume.LTC))
+
+# Rename Close variable to Price
+names(ltc)[names(ltc) == "Close"] <- "LTC.Price"
+
+# Rename Volume.USD to Currency
+names(ltc)[names(ltc) == "Volume.USD"] <- "LTC.Volume"
+
+# Display the first and last 6 elements to ensure that the data is read properly
+head(ltc)
+tail(ltc)
+```
+### Ripple Data
+**Data Description**
+* Ripple Data prices from January 17 2017- November 15 2020
+* Source: Coinbase
+```{r}
+# Read CSV data into R
+xrp_data <- read.csv("Bitstamp_XRPUSD_d.csv", header = TRUE)
+
+# Order rows by date
+xrp = xrp_data[order(xrp_data$Date),]
+
+# Remove Timestamp & Symbol
+xrp = subset(xrp, select = -c(Unix.Timestamp, Symbol))
+
+# Convert Date factor into date format
+xrp$Date <- as.Date(xrp$Date, format = "%Y-%m-%d")
+
+# Remove the Open, High and Low variables
+xrp <- subset(xrp, select = -c(Open, High, Low, Volume.XRP))
+
+# Rename Close variable to Price
+names(xrp)[names(xrp) == "Close"] <- "XRP.Price"
+
+# Rename Volume.USD to Currency
+names(xrp)[names(xrp) == "Volume.USD"] <- "XRP.Volume"
+
+# Display the first and last 6 elements to ensure that the data is read properly
+head(xrp)
+tail(xrp)
+
+# Count the number of rows since this is the shortest data time frame
+dim(xrp)[1]
+```
+### Data Cleaning
+**Filter Rows for Consistency**
+* Due to difference in start of the crypto data points and the BTC data points, rows will need to be removed to be aligned
+    + This will weaken the model as it is removing 789 data points
+```{r}
+# Total number of rows (from XRP database since it has the fewest historical data points)
+c_rows <- dim(xrp)[1] -12 #TBD : why the 12?
+
+# Format Bitcoin
+btc_c <- tail(btc,n=c_rows)
+head(btc_c)
+tail(btc_c)
+
+# Ethereum
+eth <- tail(eth,n=c_rows)
+head(eth)
+tail(eth)
+
+# Litecoin
+ltc <- tail(ltc,n=c_rows)
+head(ltc)
+tail(ltc)
+
+# Ripple
+xrp <- tail(xrp,n=c_rows)
+head(xrp)
+tail(xrp)
+```
+**Remove All but One Date Variable & Merge Datasets**
+* Now the master data file starts on 2017 January 29 - 2020 November 20
+```{r}
+# Ethereum
+eth <- subset(eth, select = -c(Date))
+
+# Litecoin
+ltc <- subset(ltc, select = -c(Date))
+
+# Ripple
+xrp <- subset(xrp, select = -c(Date))
+
+# Merge the Data Frames
+coins <- cbind(btc_c, eth, ltc, xrp)
+
+head(coins)
+```
+# Creating master data frame
+```{r}
+# Rename frame for consistency
+master = coins
+
+head(master)
+tail(master)
+dim(master )
+```
+## Google Search 
+**Data Description**
+* Interest over time of Bitcoin (Jan 2017 --> Nov 2020)
+* Source: Google Trends 
+* Numbers represent search interest relative to the highest point on the chart for the given region and time. A value of 100 is the peak popularity for the term. A value of 50 means that the term is half as popular. A score of 0 means there was not enough data for this term
+
+**Process Explanation** 
+* We were unable to find daily Bitcoin interest data for a long time frame. However, we were able to find weekly data
+* There are two options to align with the master data frame: 
++ (1) Convert the master BTC data into weekly
++ (2) Convert the google search weekly data into daily
+* Our group chose to convert google search data into daily as converting the BTC data into weekly will significantly decrease our data size (~ 1300  -->  ~ 300).
+* Instead we will iterate through the google search data and for the weeks data point, we will assign it the dates 
+*"google trends data_v3.csv" represents the weekly data converted to daily
+* The data clean to convert to daily was done on excel (using VLOOKUP and Match and Index)
+```{r}
+# Sourced from https://trends.google.com/trends/explore?date=2014-12-01%202020-11-20&geo=US&q=Bitcoin
+
+# Read CSV data into R
+search <- read.csv("google trends data_v3.csv", header = TRUE)
+search = search[order(search$Date),]
+
+# Confirm correct number of rows
+dim(search)
+
+# Rename Bitcoin Frequency variable
+names(search)[names(search) == "Bitcoin"] = "Google_Search_Frequency"
+
+# Convert search freqency into numerical format
+search$Google_Search_Frequency = as.numeric(search$Google_Search_Frequency)
+
+head(search)
+tail(search)
+```
+**Merge the search data to master data frame**
+```{r}
+master = cbind(master, search$Google_Search_Frequency)
+
+head(master)
+```
+## Add Additional asset classes
+### S+P 500
+**Data Description:**
+* Price of SP 500 from 2017-2020
+* Source: Yahoo Finance
+* Since the stock market is only open on the weekdays, the data file does not consist of weekend values
+* We will remove weekends on the master file to ensure alignment of asset classes data 
+* This will weaken the model as it reduce the data frame size by ~ 104 data points
+
+```{r}
+SP500 <- read.csv("^GSPC.csv", header = TRUE)
+SP500 = SP500[order(SP500$Date),]
+SP500$Date <- as.Date(SP500$Date, format = "%Y-%m-%d")
+
+# Remove the Open, High and Low variables
+SP500 <- subset(SP500, select = -c(Open, High, Low, Adj.Close))
+
+# Rename Close variable to Price
+names(SP500)[names(SP500) == "Close"] <- "SP500.Price"
+
+# Rename Volume.USD to Currency
+names(SP500)[names(SP500) == "Volume"] <- "SP500.Volume"
+
+head(SP500)
+tail(SP500)
+dim(SP500)
+```
+**Convert master data frame to only include week days**
+* Search through the master file, find S and P 500 date, and insert the S and P 500 Price and Volume for the associated date
+* This is an inefficient method to search, to improve this potentially using a linear search as the data is already sorted
+```{r}
+master$SP500.Price = 0
+master$SP500.Volume =0
+head(master)
+
+for (master_date in (1:length(master$Date)))
+{
+  for (SP_date in (1:length(SP500$Date)))
+  {
+    if(master$Date[master_date] == SP500$Date[SP_date])
+    {
+      master$SP500.Price[master_date] = SP500$SP500.Price[SP_date]
+      master$SP500.Volume[master_date] = SP500$SP500.Volume[SP_date]
+      next
+    }
+  }
+}
+
+head(master)
+tail(master)
+```
+**Removing Weekends/Holidays**
+* Remove any values the SP 500 didn't have
+* now only has 961 rows of data
+```{r}
+master= master[!(master$SP500.Price ==0 & master$SP500.Volume ==0),]
+
+head(master)
+tail(master)
+dim(master)
+```
+### Gold
+**Data Description**
+* Price of gold from 2017- 2020
+* Source: Yahoo Finance
+```{r}
+gold <- read.csv("GC=F.csv", header = TRUE)
+gold = gold[order(gold$Date),]
+gold$Date <- as.Date(gold$Date, format = "%Y-%m-%d")
+
+# Remove the Open, High and Low variables
+gold <- subset(gold, select = -c(Open, High, Low, Adj.Close))
+
+# Rename Close variable to Price
+names(gold)[names(gold) == "Close"] <- "Gold.Price"
+
+# Rename Volume.USD to Currency
+names(gold)[names(gold) == "Volume"] <- "Gold.Volume"
+
+#Remove Nulls 
+gold= gold[!(gold$Gold.Price == "null" & gold$Gold.Volume =="null"),]
+
+# Convert price and volume factor into numerical format
+gold$Gold.Price = as.numeric(gold$Gold.Price)
+gold$Gold.Volume = as.numeric(gold$Gold.Volume)
+
+head(gold)
+tail(gold)
+dim(gold)
+```
+**Aligning with Master Data Set**
+```{r}
+master$Gold.Price = 0
+master$Gold.Volume = 0
+
+for (master_date in (1:length(master$Date)))
+{
+  for (i in (1:length(gold$Date)))
+  {
+    if(master$Date[master_date] == gold$Date[i])
+    {
+      master$Gold.Price[master_date] = gold$Gold.Price[i]
+      master$Gold.Volume[master_date] = gold$Gold.Volume[i]
+      next
+    }
+  }
+}
+
+head(master)
+tail(master)
+```
+**The data now has 952 data points to work with and 21 features**
+* 952 data points are very few considering the complexity of this task
+* 21 features provide a sufficient number of options for creating a predictive outcomes
+* It'll be difficult to build a strong predictive model given the small data set, randomness of the data, and relatively simple machine learning models.
+```{r}
+#Removing blanks
+master= master[!(master$Gold.Price ==0 & master$Gold.Volume ==0),]
+
+dim(master)
+```
+# Data Modeling
+```{r}
+summary(master)
+```
+We can see through the min and max of the price variables, such as Ethereum's min of 10.59 and max of 1290, the rapid growth and volatility of cryptocurrency market. Specifically, when cryptocurrency is compared to traditional asset classes, such the S&P500, which had a min of 2237 and max of 3627, and Gold, which has a min of 1176 and max of 2052, over the same period.
+
+## Display Histograms
+```{r}
+hist(master$Volume.BTC, col="blue")
+hist(master$Volume.USD, col="blue")
+hist(master$Close, col="blue")
+```
+## Display Scatter Plots
+* Display the Close Price over the time,this confirms how volatile Bitcoin prices are
+```{r}
+# scatter plots of the data
+plot(master$Date, master$Close,pch=20,col="red")
+```
+
+```{r}
+head(master)
+```
+### Plots - If Y varaiable was Close ($)
+```{r}
+master$Gold.Price<- as.double(master$Gold.Price)
+master$Gold.Volume<- as.double(master$Gold.Volume)
+plot( master$Volume.USD,master$Close,pch=20,col="red")
+plot( master$Volume.BTC,master$Close,pch=20,col="red")
+plot( master$ETH.Price,master$Close,pch=20,col="red")
+plot( master$ETH.Price,master$Close,pch=20,col="red")
+plot( master$ETH.Volume,master$Close,pch=20,col="red")
+plot( master$LTC.Price,master$Close,pch=20,col="red")
+plot( master$LTC.Volume,master$Close,pch=20,col="red")
+plot( master$XRP.Price,master$Close,pch=20,col="red")
+plot( master$XRP.Volume,master$Close,pch=20,col="red")
+plot( master$SP500.Price,master$Close,pch=20,col="red")
+plot( master$SP500.Volume,master$Close,pch=20,col="red")
+plot( master$Gold.Price,master$Close,pch=20,col="red")
+plot( master$Gold.Volume,master$Close,pch=20,col="red")
+#plot( master$HL.Close,master$Close,pch=20,col="red")
+```
+## Cleaning the master
+```{r}
+#move y variable (HL.close)to the last index
+##dont rerun this chunk or the indexing will get messed up
+#master <- master[,c(1,2,3,4,5,6,7,8,10,11,12,13,14,15,16,17,18,19,20,9)]
+
+names(master)
+#To convert all values to integers
+#cor(as.numeric(RETS), as.numeric(RETS) -> correl
+
+#Correlation matrix cannot have categorical variables and must be numeric
+sapply(master,class)
+
+# Rename 
+names(master)[names(master) == "search$Google_Search_Frequency"] <- "Google.Search"
+
+#head(master)
+```
+## Correlation Master Data Set
+```{r}
+#Remove Timestamp, date 
+master_cor = subset(master, select = -c(Timestamp, Date))
+
+master= master_cor
+
+head(master_cor)
+```
+## Correlation Matrix with HL.Close
+Removed HL.Close since it is our Y variable
+```{r}
+x=round(cor(master_cor[ ,1:17]),2)
+library("corrplot")
+
+cor(master_cor[ ,1:17])
+library("Hmisc")
+
+library(RColorBrewer)
+
+corrplot((cor(master_cor[ ,1:17])), method = "number")
+
+M <-cor(master_cor)
+corrplot(M, type="upper", order="hclust",
+         col=brewer.pal(n=8, name="RdYlBu"))
+```
+## Correlation Matrix  without HL.Close
+```{r}
+
+master_cor2 = subset(master_cor, select = -c(HL.Close))
+
+x=round(cor(master_cor2[ ,1:17]),2)
+library("corrplot")
+
+cor(master_cor2[ ,1:17])
+library("Hmisc")
+
+library(RColorBrewer)
+
+corrplot((cor(master_cor2[ ,1:17])), method = "number")
+
+M <-cor(master_cor2)
+corrplot(M, type="upper", order="hclust",
+         col=brewer.pal(n=8, name="RdYlBu"))
+```
+## Plot Part 2 Y value = HL.Close
+```{r}
+plot( master_cor2$Volume.USD,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$Volume.BTC,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$ETH.Price,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$ETH.Price,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$ETH.Volume,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$LTC.Price,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$LTC.Volume,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$XRP.Price,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$XRP.Volume,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$SP500.Price,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$SP500.Volume,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$Gold.Price,master_cor$HL.Close,pch=20,col="red")
+plot( master_cor2$Gold.Volume,master_cor$HL.Close,pch=20,col="red")
+
+```
+### Remove highly correlated variables
+*Typically you would want to remove variables that are highly correlated (0.4+) to avoid multicollinerity 
+*However, as shown in the correlation charts, variables are very highly correlated to each other
+*To ensure that we have enough data points in our model we will be use 0.76 as the correlation cutoff point
+```{r}
+library(caret)
+
+df2 = cor(master_cor)
+hc = findCorrelation(df2, cutoff=0.76) # putt any value as a "cutoff" 
+hc = sort(hc)
+master_reduced = master_cor[,-c(hc)]
+head (master_reduced)
+```
+# Regression 
+*Regression with the eliminated correlation variables 
+```{r}
+master_reg = master_reduced
+```
+
+```{r}
+# Create Training and Testing Sets
+head(master_reg)
+num_samples = dim(master_reg)[1]
+sampling.rate = 0.8
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- master[training, ]
+testing <- setdiff(1:num_samples,training)
+testingSet <- master[testing, ]
+```
+## Regression 1
+**Create regression model,  Logistic  Regression with the removed correlated variables**
+```{r}
+# Create Regression Model
+LogisticReg <- glm(HL.Close ~ Low + Volume.BTC + ETH.Volume + LTC.Volume + XRP.Price + XRP.Volume + Google.Search + SP500.Price+ SP500.Volume+ Gold.Volume, data = trainingSet, family = binomial(logit))
+#get summary statistics
+summary(LogisticReg)
+```
+## Regression 2
+**Removal of SP500.Volume Eliminate insignificant variables one by one, starting with the variable with the highest P value**
+```{r}
+LogisticReg <- glm(HL.Close ~ Low + Volume.BTC + ETH.Volume + LTC.Volume + XRP.Price + XRP.Volume + Google.Search + SP500.Price+ Gold.Volume, data = trainingSet, family = binomial(logit))
+#get summary statistics
+summary(LogisticReg)
+
+```
+## Regression 3
+**Removal of LTC.Volume**
+```{r}
+LogisticReg <- glm(HL.Close ~ Low + Volume.BTC + ETH.Volume + XRP.Price + XRP.Volume + Google.Search + SP500.Price+ Gold.Volume, data = trainingSet, family = binomial(logit))
+#get summary statistics
+summary(LogisticReg)
+```
+## Regression 4
+**Removal of XRP.Price**
+```{r}
+LogisticReg <- glm(HL.Close ~ Low + Volume.BTC + ETH.Volume + XRP.Volume + Google.Search + SP500.Price+ Gold.Volume, data = trainingSet, family = binomial(logit))
+#get summary statistics
+summary(LogisticReg)
+```
+
+## Regression 5
+**Removal of Gold.Volume**
+```{r}
+LogisticReg <- glm(HL.Close ~ Low + Volume.BTC + ETH.Volume + XRP.Volume + Google.Search + SP500.Price, data = trainingSet, family = binomial(logit))
+#get summary statistics
+summary(LogisticReg)
+```
+
+## Regression 6
+**Removal of BTC.Volume**
+* This will be last iteration of the regression_v1. Although the P value for every variable is except "Low" and "XRP.Volume" is higher than the benchmark of 0.05. 
+* This indicates most of the variables we have used are statically insignificant 
+* If we were to extend this analysis, we would look into ANOVA and Lower and Upper 95% to get a stronger understanding about the coefficients/variables 
+```{r}
+LogisticReg <- glm(HL.Close ~ Low + ETH.Volume + XRP.Volume + Google.Search + SP500.Price, data = trainingSet, family = binomial(logit))
+#get summary statistics
+summary(LogisticReg)
+```
+# Version 2 of Regression
+**Only include stastically signifcant varaibles ( Low and XRP.Volume)**
+```{r}
+LogisticReg_v2 <- glm(HL.Close ~ Low + XRP.Volume, data = trainingSet, family = binomial(logit))
+#get summary statistics
+summary(LogisticReg_v2)
+```
+## Predictions of Regression V1
+```{r}
+# Perform prdictions for the testing set
+predictions <-predict(LogisticReg, testingSet, type = "response")
+```
+
+```{r}
+predictedLabels <- round(predictions)
+```
+**We compute the misclassification rate regression V1 (the rate of incorrect predictions).**
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+## Regression of V2 (Only including Low and XRP.Volume)
+```{r}
+# Perform prdictions for the testing set
+predictions <-predict(LogisticReg_v2, testingSet, type = "response")
+```
+**The predict function returns continuous values between 0 and 1. We need to convert these values to the discrete 0/1 classes**
+```{r}
+predictedLabels <- round(predictions)
+```
+
+### Plot the actual vs predicted values (for the testing set)
+* We compute the misclassification rate RegressionV2 
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+# Decision Tree
+* Desicion trees make no assumptions on relationships between features. Thus we can include the corelated variables
+* It just constructs splits on single features that improves classification, based on  entropy
+```{r}
+master_tree = master
+master_tree$HL.Close = factor(master_tree$HL.Close, levels=c(0,1), labels = c("L", "H"))
+levels((master_tree$HL.Close))
+```
+**Create Training and Testing sets (Note that this data set is small so let us keep 90% for training)**
+```{r}
+# Create Training and Testing Sets
+num_samples = dim(master_tree)[1]
+sampling.rate = 0.9
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- master_tree[training, ]
+testing <- setdiff(1:num_samples,training)
+testingSet <- master_tree[testing, ]
+```
+**Fit a decision tree to predict rating using all the other variables.**
+```{r}
+library(rpart)
+#Fit a decision tree model using the training data
+decTreeModel <- rpart(HL.Close ~ .,data=trainingSet, method = "class")
+```
+**Display the tree**
+```{r}
+plot(decTreeModel, margin=0.1)
+text(decTreeModel)
+```
+```{r}
+library(rpart.plot)
+rpart.plot(decTreeModel)
+```
+**Tune the size of the tree to avoid overfitting**
+```{r}
+plotcp(decTreeModel)
+```
+**Prune the tree at a cp = 0.018**
+* Check if this right 
+```{r}
+pruned_decTreeModel = prune(decTreeModel, cp=0.018)
+# Display pruned tree
+plot(pruned_decTreeModel, margin=0.1)
+text(pruned_decTreeModel)
+```
+```{r}
+rpart.plot(pruned_decTreeModel)
+```
+**Evaluate the decision tree model using the testing set**
+```{r}
+# Perform prdictions for the testing set
+predictedLabels<-predict(pruned_decTreeModel, testingSet, type = "class")
+print(predictedLabels)
+```
+**Show the true labels**
+```{r}
+print(testingSet$HL.Close)
+```
+## Decision Tree's misclassification rate
+```{r}
+
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+
+```
+# Random Forest
+```{r}
+library(randomForest)
+```
+
+```{r}
+#Factors of the Y varaiable 
+master_forest = master_tree
+head(master_forest)
+```
+## Create Training and Testing sets
+```{r}
+# Create Training and Testing Sets
+num_samples = dim(master_forest)[1]
+sampling.rate = 0.9
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- master_forest[training, ]
+testing <- setdiff(1:num_samples,training)
+testingSet <- master_forest[testing, ]
+```
+## Train a random forest using the training set data
+```{r}
+RandForestModel <- randomForest(HL.Close ~ ., data = trainingSet)
+```
+## Plot the error as a function of the number of trees
+**Interpret the graph**
+```{r}
+plot(RandForestModel)
+legend("top", colnames(RandForestModel$err.rate),fill=1:3)
+```
+```{r}
+# Perform predictions for the testing set
+predictedLabels<-predict(RandForestModel, testingSet)
+```
+## Random Forest Misclassification rate 
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+# Rank Features By Importance
+* Want to use multiple methods to see which features/variables are more valuable. Potentially, certain variables are better for certain algorithms 
+* As shown in the chart, LTC.Price and Close are the ranked the highest in importance however, when conducting a varImp using the decision tree master data
+* This is interesting as these two variables were removed in the correlation matrix due to multicolinearity 
+```{r}
+# ensure results are repeatable
+set.seed(7)
+# load the library
+library(mlbench)
+library(caret)
+# load the dataset
+data(master_tree)
+# prepare training scheme
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+# train the model
+model <- train(HL.Close~., data=master_tree, method="lvq", preProcess="scale", trControl=control)
+# estimate variable importance
+importance <- varImp(model, scale=FALSE)
+# summarize importance
+print(importance)
+# plot importance
+plot(importance)
+```
+# KNN
+```{r}
+master_knn = master
+head(master_knn)
+
+master_knn <- master_knn[c(7,1,2,3,4,5,6,8,9,10,11,12,13,14,15,16,17,18)]
+head(master_knn)
+```
+
+```{r}
+# Normalize All the Attributes ( NOT HL.CLOSE)
+master_knn$Open = (master_knn$Open-mean(master_knn$Open))/sd(master_knn$Open)
+master_knn$High = (master_knn$High-mean(master_knn$High))/sd(master_knn$High)
+master_knn$Low = (master_knn$Low-mean(master_knn$Low))/sd(master_knn$Low)
+master_knn$Close = (master_knn$Close-mean(master_knn$Close))/sd(master_knn$Close)
+master_knn$Volume.BTC = (master_knn$Volume.BTC-mean(master_knn$Volume.BTC))/sd(master_knn$Volume.BTC)
+master_knn$Volume.USD = (master_knn$Volume.USD-mean(master_knn$Volume.USD))/sd(master_knn$Volume.USD)
+master_knn$ETH.Price = (master_knn$ETH.Price-mean(master_knn$ETH.Price))/sd(master_knn$ETH.Price)
+master_knn$ETH.Volume = (master_knn$ETH.Volume-mean(master_knn$ETH.Volume))/sd(master_knn$ETH.Volume)
+master_knn$LTC.Price = (master_knn$LTC.Price-mean(master_knn$LTC.Price))/sd(master_knn$LTC.Price)
+master_knn$LTC.Volume = (master_knn$LTC.Volume-mean(master_knn$LTC.Volume))/sd(master_knn$LTC.Volume)
+master_knn$XRP.Price = (master_knn$XRP.Price-mean(master_knn$XRP.Price))/sd(master_knn$XRP.Price)
+master_knn$XRP.Volume = (master_knn$XRP.Volume-mean(master_knn$XRP.Volume))/sd(master_knn$XRP.Volume)
+master_knn$Google.Search = (master_knn$Google.Search-mean(master_knn$Google.Search))/sd(master_knn$Google.Search)
+master_knn$SP500.Price = (master_knn$SP500.Price-mean(master_knn$SP500.Price))/sd(master_knn$SP500.Price)
+master_knn$SP500.Volume = (master_knn$SP500.Volume-mean(master_knn$SP500.Volume))/sd(master_knn$SP500.Volume)
+master_knn$Gold.Price = (master_knn$Gold.Price-mean(master_knn$Gold.Price))/sd(master_knn$Gold.Price)
+master_knn$Gold.Volume = (master_knn$Gold.Volume-mean(master_knn$Gold.Volume))/sd(master_knn$Gold.Volume)
+```
+# KNN without removed variables 
+```{r}
+# Create Training and Testing Sets
+num_samples = dim(master_knn)[1]
+sampling.rate = 0.8
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- master_knn[training, ]
+testing <- setdiff(1:num_samples,training)
+testingSet <- master_knn[testing, ]
+```
+```{r}
+# Get the features of the training set
+trainingfeatures <- subset(trainingSet, select=c(-HL.Close))
+# Get the labels of the training set
+traininglabels <- trainingSet$HL.Close
+# Get the features of the testing set
+testingfeatures <- subset(testingSet, select=c(-HL.Close))
+```
+```{r}
+# Load the classification library
+library(class)
+# call KNN with k=3
+predictedLabels = knn(trainingfeatures,testingfeatures,traininglabels,k=3)
+```
+**Display the predicted Labels**
+```{r}
+head(predictedLabels)
+```
+## Misclassification rate 
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+# KNN V2 removed variables using VarImp
+* As the previous chart indicated that Close and LTC.Price are the most important variables, this version of KNN will only include those variables
+```{r}
+master_knnv2= subset(master_knn, select=c(HL.Close,Close,LTC.Price))
+head(master_knnv2)
+```
+
+```{r}
+# Create Training and Testing Sets
+num_samples = dim(master_knnv2)[1]
+sampling.rate = 0.9
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- master_knnv2[training, ]
+testing <- setdiff(1:num_samples,training)
+testingSet <- master_knnv2[testing, ]
+```
+```{r}
+# Get the features of the training set
+trainingfeatures <- subset(trainingSet, select=c(-HL.Close))
+# Get the labels of the training set
+traininglabels <- trainingSet$HL.Close
+# Get the features of the testing set
+testingfeatures <- subset(testingSet, select=c(-HL.Close))
+```
+```{r}
+# Load the classification library
+library(class)
+# call KNN with k=3
+predictedLabels = knn(trainingfeatures,testingfeatures,traininglabels,k=3)
+```
+**Display the predicted Labels**
+```{r}
+head(predictedLabels)
+```
+## Misclassification rate 
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+# KNN V3 Using Regression Variables (Low and XRP.Volume)
+* These variables were used in the binary regression and were narrowed down based on P value and correlation
+```{r}
+master_knnv3= subset(master_knn, select=c(HL.Close,Low,XRP.Volume))
+head(master_knnv3)
+```
+```{r}
+# Create Training and Testing Sets
+num_samples = dim(master_knnv3)[1]
+sampling.rate = 0.9
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- master_knnv3[training, ]
+testing <- setdiff(1:num_samples,training)
+testingSet <- master_knnv3[testing, ]
+```
+```{r}
+# Get the features of the training set
+trainingfeatures <- subset(trainingSet, select=c(-HL.Close))
+# Get the labels of the training set
+traininglabels <- trainingSet$HL.Close
+# Get the features of the testing set
+testingfeatures <- subset(testingSet, select=c(-HL.Close))
+```
+```{r}
+# Load the classification library
+library(class)
+# call KNN with k=3
+predictedLabels = knn(trainingfeatures,testingfeatures,traininglabels,k=3)
+```
+**Display the predicted Labels**
+```{r}
+head(predictedLabels)
+```
+## Misclassification rate 
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+# Feature Selection
+```{r}
+set.seed(7)
+# load the library
+library(mlbench)
+library(caret)
+# load the data
+data(master_knn)
+# define the control using a random forest selection function
+control <- rfeControl(functions=rfFuncs, method="cv", number=10)
+# run the RFE algorithm
+results <- rfe(master_knn[,1:17], master_knn[,18], sizes=c(1:8), rfeControl=control)
+# summarize the results
+print(results)
+# list the chosen features
+predictors(results)
+# plot the results
+plot(results, type=c("g", "o"))
+```
+# Recursive  Feature Selection
+```{r}
+
+master_rfe= master
+y= master_rfe$HL.Close
+x = subset(master_rfe, select = -c(HL.Close))
+normalization = preProcess(x)
+x = predict(normalization,x)
+x= as.data.frame(x)
+head(x)
+head(y)
+subsets = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18)
+```
+
+```{r}
+set.seed(10)
+
+ctrl = rfeControl(functions = lmFuncs, method = "repeatedcv", repeats = 3, verbose = FALSE)
+
+lmProfile = rfe(x, y, sizes = subsets, rfeControl = ctrl)
+lmProfile
+```
+```{r}
+predictors(lmProfile)
+```
+```{r}
+lmProfile$fit
+```
+
+
+```{r}
+head(lmProfile$resample)
+```
+
+```{r}
+trellis.par.set(caretTheme())
+plot(lmProfile, type = c("g", "o"))
+```
+# SVM
+```{r}
+master_svm = master_cor
+head(master_svm)
+```
+```{r}
+# Normalize All the Attributes ( NOT HL.CLOSE)
+master_svm$Open = (master_svm$Open-mean(master_svm$Open))/sd(master_svm$Open)
+master_svm$High = (master_svm$High-mean(master_svm$High))/sd(master_svm$High)
+master_svm$Low = (master_svm$Low-mean(master_svm$Low))/sd(master_svm$Low)
+master_svm$Close = (master_svm$Close-mean(master_svm$Close))/sd(master_svm$Close)
+master_svm$Volume.BTC = (master_svm$Volume.BTC-mean(master_svm$Volume.BTC))/sd(master_svm$Volume.BTC)
+master_svm$Volume.USD = (master_svm$Volume.USD-mean(master_svm$Volume.USD))/sd(master_svm$Volume.USD)
+master_svm$ETH.Price = (master_svm$ETH.Price-mean(master_svm$ETH.Price))/sd(master_svm$ETH.Price)
+master_svm$ETH.Volume = (master_svm$ETH.Volume-mean(master_svm$ETH.Volume))/sd(master_svm$ETH.Volume)
+master_svm$LTC.Price = (master_svm$LTC.Price-mean(master_svm$LTC.Price))/sd(master_svm$LTC.Price)
+master_svm$LTC.Volume = (master_svm$LTC.Volume-mean(master_svm$LTC.Volume))/sd(master_svm$LTC.Volume)
+master_svm$XRP.Price = (master_svm$XRP.Price-mean(master_svm$XRP.Price))/sd(master_svm$XRP.Price)
+master_svm$XRP.Volume = (master_svm$XRP.Volume-mean(master_svm$XRP.Volume))/sd(master_svm$XRP.Volume)
+master_svm$Google.Search = (master_svm$Google.Search-mean(master_svm$Google.Search))/sd(master_svm$Google.Search)
+master_svm$SP500.Price = (master_svm$SP500.Price-mean(master_svm$SP500.Price))/sd(master_svm$SP500.Price)
+master_svm$SP500.Volume = (master_svm$SP500.Volume-mean(master_svm$SP500.Volume))/sd(master_svm$SP500.Volume)
+master_svm$Gold.Price = (master_svm$Gold.Price-mean(master_svm$Gold.Price))/sd(master_svm$Gold.Price)
+master_svm$Gold.Volume = (master_svm$Gold.Volume-mean(master_svm$Gold.Volume))/sd(master_svm$Gold.Volume)
+
+```
+**Make sure that the value that you are trying to predict is a factor**
+```{r}
+master_svm$HL.Close = factor(master_svm$HL.Close, levels=c(0,1), labels = c("L", "H"))
+levels((master_svm$HL.Close))
+```
+## Create Training and testing sets
+```{r}
+# Create Training and Testing Sets
+num_samples = dim(master_svm)[1]
+sampling.rate = 0.8
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- master_svm[training, ]
+testing <- setdiff(1:num_samples,training)
+testingSet <- master_svm[testing, ]
+```
+## Linear SVM
+```{r}
+# Load the SVM Library
+library(e1071)
+# Apply a linear SVM with an error cost of 20
+svmModel <- svm(HL.Close~., data=trainingSet, kernel="linear", cost=20)
+```
+```{r}
+# Perform predictions for the testing set
+predictedLabels <-predict(svmModel, testingSet)
+predictedLabels
+```
+```{r}
+#Calculate misclassification rate
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+## Polynomial SVM
+```{r}
+# Apply a polynomial SVM with an error cost of 20
+svmModel <- svm(HL.Close~., data=trainingSet, kernel="polynomial", cost=20)
+```
+**Let us now do some predictions on the test set**
+```{r}
+# Perform prdictions for the testing set
+predictedLabels <-predict(svmModel, testingSet)
+predictedLabels
+```
+**We compute the misclassification rate (the rate of incorrect predictions).**
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+## Radial SVM
+```{r}
+# Apply a radial SVM with an error cost of 20
+svmModel <- svm(HL.Close~., data=trainingSet, kernel="radial", cost=20)
+```
+```{r}
+# Perform predictions for the testing set
+predictedLabels <-predict(svmModel, testingSet)
+```
+```{r}
+# Get the number of data points in the test set
+sizeTestSet = dim(testingSet)[1]
+# Get the number of data points that are misclassified
+error = sum(predictedLabels != testingSet$HL.Close)
+# Calculate the misclassification rate
+misclassification_rate = error/sizeTestSet
+# Display the misclassification rate
+print(misclassification_rate)
+```
+# Time Series 
+```{r}
+library("anytime")
+library("bsts")
+library("car")
+library("caret")
+library("forecast")
+library("tseries")
+library("TTR")
+master_reg <- read.csv("Coinbase_BTCUSD_d.csv")
+num_samples = dim(master_reg)[1]
+sampling.rate = 0.996
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- master_reg[training, ]
+testing <- setdiff(1:num_samples,training)
+testingSet <- master_reg[testing, ]
+num_samples = dim(master_reg)[1]
+sampling.rate = 0.996
+training <- sample(1:num_samples, sampling.rate * num_samples, replace=FALSE)
+trainingSet <- master_reg[training, ]
+trainingSet = subset(trainingSet, select = -c(Timestamp, Symbol, Volume.BTC))
+
+testing <- setdiff(1:num_samples,training)
+testingSet <- master_reg[testing, ]
+testingSet = subset(testingSet, select = -c(Timestamp, Symbol,Open, High, Low, Volume.BTC, Volume.USD))
+testdata <- testingSet[,2]
+
+trainingSet$Date <- as.Date(anytime(trainingSet$Date))
+testingSet$Date <- as.Date(anytime(testingSet$Date))
+trainingSet$Volume <- gsub(",", "", trainingSet$Volume.USD)
+trainingSet$Volume <- as.numeric(trainingSet$Volume.USD)
+
+
+
+trainingSet <- xts(trainingSet[, -1], order.by = as.POSIXct(trainingSet$Date)) 
+trainingSetResult <- ts(trainingSet[,4], frequency = 365,start = 2015)
+dects <- decompose(trainingSetResult) 
+plot(dects)
+```
+```{r}
+holt_result <-  holt(trainingSet[1000:2000,'Close'], type = "additive", damped = F) 
+
+holt_forecast <- forecast(holt_result, h = 9)
+
+holtdf <- as.data.frame(holt_forecast)
+holtdf
+plot(holtdf, ylim = c(0,20000)) 
+
+holtfdf <- cbind(testingSet, holtdf[,1])
+holtfdf
+accuracy(holtdf[,1], testdata)
+ggplot() + geom_line(data = holtfdf, aes(Date, holtfdf[,2]), color = "blue") + geom_line(data = holtfdf, aes(Date, holtfdf[,3]), color = "Dark Red")
+```
+```
