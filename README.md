@@ -1,4 +1,5 @@
 # Bitcoin
+By [Anna Abraham](https://www.linkedin.com/in/anika-anna-abraham/), [Celena Gong](https://www.linkedin.com/in/celena-gong/), and [Liam Herbst](https://www.linkedin.com/in/liam-herbst/)
 ## Opportunity
 Bitcoin is a highly volatile and unpredictable financial instrument that poses both great promise and risk for investors. Some reputable investors claim Bitcoin is the future of financial currency and will grow to be worth $1M in 5 years (from its current ~$19k value), while others believe it will go to zero.
 ## Problem
